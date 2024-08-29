@@ -1,0 +1,1552 @@
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: Gitee AI Admin OpenAPI
+  description: |
+    这是 Gitee AI 平台的后台管理接口。
+
+    ### Errors
+
+    本 API 使用标准的 HTTP 状态码来指示操作成功或者失败，如果失败将会在 body 中以 JSON 格式提供详细的错误信息，如下所示：
+
+    ```
+    {
+      "error": 404,
+      "message": "page not found"
+    }
+    ```
+
+  contact:
+    name: Gitee AI
+    url: https://ai.gitee.com/about
+    email: gitee-ai@oschina.cn
+
+servers:
+  - url: https://ai.gitee.com/api/admin
+    description: Production server
+  - url: http://localhost:8080/admin
+    description: Development server
+
+tags:
+  - name: Global
+    description: 全局接口
+  - name: UserManager
+    description: 用户管理接口
+  - name: OrderManager
+    description: 订单管理接口
+  - name: Finance
+    description: 资金财务管理
+  - name: OrganizationManager
+    description: 组织管理
+
+paths:
+  /:
+    get:
+      summary: 接口欢迎信息
+      operationId: welcome
+      tags:
+        - Global
+      responses:
+        default:
+          description: 接口欢迎信息，用于测试接口的可用性
+          content:
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+            application/x-yaml:
+              schema:
+                type: string
+  /yaml:
+    get:
+      summary: '接口定义(YAML)'
+      operationId: yaml
+      description: 获取 OpenAPI 接口定义(YAML)
+      tags:
+        - Global
+      responses:
+        default:
+          description: OpenAPI 接口定义详情 (YAML)
+          content:
+            application/x-yaml:
+              schema:
+                type: string
+  /users:
+    get:
+      summary: '用户列表'
+      operationId: userMgr.users
+      description: 获取用户列表
+      tags:
+        - UserManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          description: 状态
+          required: false
+          schema:
+            type: integer
+        - name: keyword
+          in: query
+          description: 搜索关键字(模糊搜索name username)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 用户列表分页
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - total
+                  - items
+                properties:
+                  total:
+                    type: integer
+                    description: 用户总数
+                  items:
+                    type: array
+                    description: 当前分页下的用户列表
+                    items:
+                      $ref: '#/components/schemas/AdminUser'
+    patch:
+      summary: '修改用户状态'
+      operationId: userMgr.status
+      description: 修改用户状态
+      tags:
+        - UserManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: id
+          in: query
+          description: 用户id
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: 用户状态(0-未受邀,1-正常,2-禁用,3-未激活)
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 更新结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /users/{id}/moderate:
+    patch:
+      summary: '设置审核白名单'
+      operationId: userMgr.moderate
+      description: 设置审核白名单
+      tags:
+        - UserManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          description: 用户id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - moderation
+              properties:
+                moderation:
+                  type: boolean
+                  description: 是否需要审核
+      responses:
+        '200':
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /account/search:
+    get:
+      summary: '搜索账号'
+      operationId: userMgr.search
+      description: 根据namespace搜索账号（用户、组织)
+      tags:
+        - UserManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: keyword
+          in: query
+          description: namespace拼接字符串，用逗号拼接多个账号
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+
+  /orders:
+    get:
+      summary: '订单列表'
+      operationId: orderMgr.orders
+      description: 获取订单列表
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/OrderStatus'
+        - $ref: '#/components/parameters/OrderIdent'
+        - $ref: '#/components/parameters/serviceType'
+        - name: start_date
+          in: query
+          description: 开始日期
+          required: false
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: 结束日期
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 订单列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrders'
+  /order:
+    get:
+      parameters:
+        - name: ident
+          in: query
+          description: 订单编号
+          required: true
+          schema:
+            type: string
+      summary: 获取订单详情
+      operationId: orderMgr.detail
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      responses:
+        '200':
+          description: 订单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrder'
+  /invoice/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 发票id
+        schema:
+          type: integer
+    get:
+      summary: 获取发票详情
+      operationId: invoicesMgr.get
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      responses:
+        '200':
+          description: 发票详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPaymentInvoice'
+  /invoices:
+    get:
+      summary: 获取发票列表
+      operationId: invoicesMgr.list
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          description: 发票处理状态
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 0 #未审核
+              - 1 #已审核
+              - 2 #已开票
+              - 3 #已邮寄
+              - -1 #已拒绝
+        - name: name
+          in: query
+          description: 发票抬头
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 发票列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInvoices'
+    patch:
+      summary: 审核发票
+      operationId: invoicesMgr.audited
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      requestBody:
+        description: 申请开发票的相关信息
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditedInvoiceRequest'
+      responses:
+        '200':
+          description: 更新结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /invoices/number:
+    get:
+      summary: 按状态分组获取发票总数
+      operationId: invoicesMgr.number
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      responses:
+        '200':
+          description: 发票总数
+          content:
+            application/json:
+              schema:
+                type: array
+                description: 按状态分组发票总数
+                items:
+                  $ref: '#/components/schemas/InvoiceNumber'
+  /invoices/export/csv:
+    get:
+      summary: 导出CSV文件
+      operationId: invoicesMgr.exportCsv
+      tags:
+        - OrderManager
+      description: 根据提供的ids参数导出相应的数据为CSV文件。
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: 用于导出数据的ID列表，以逗号分隔。
+          schema:
+            type: string
+            example: "1,2,3,4,5"
+      responses:
+        '200':
+          description: 返回导出的CSV文件。
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+  /finance/cash-coupon:
+    get:
+      summary: 代金券列表
+      operationId: financeMgr.cashCoupon
+      tags:
+        - Finance
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          description: 代金券状态
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 0 #未使用
+              - 1 #已使用
+              - -1 #已过期
+        - name: ident
+          in: query
+          description: 券码
+          required: false
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: 绑定账号名称
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 代金券列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCoupons'
+    post:
+      summary: 新增代金券
+      description: 选择按数量新增或者绑定用户新增，用户数组长度必须与数量一致
+      operationId: financeMgr.createCashCoupon
+      tags:
+        - Finance
+      security:
+        - AdminAuth: [ ]
+      requestBody:
+        description: 新增代金券表单
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCashCouponForm'
+      responses:
+        '200':
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  /migration/app:
+    get:
+      summary: 修复app数据
+      operationId: migration.app
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      description: 修复app数据。
+      parameters:
+        - name: batch
+          in: query
+          required: false
+          description: 一次处理的条数。
+          schema:
+            type: integer
+        - name: id
+          in: query
+          required: false
+          description: 不为空时指定处理的某个应用的id。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 执行结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /migration/engine:
+    get:
+      summary: 修复模型引擎数据
+      operationId: migration.engine
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      description: 修复模型引擎数据。
+      parameters:
+        - name: batch
+          in: query
+          required: false
+          description: 一次处理的条数。
+          schema:
+            type: integer
+        - name: id
+          in: query
+          required: false
+          description: 不为空时指定处理的某个endpoint的id。
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 执行结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /migration/serverless-resource:
+    get:
+      summary: 修复serverlessResource数据
+      operationId: migration.serverless-resource
+      tags:
+        - OrderManager
+      security:
+        - AdminAuth: [ ]
+      description: 修复serverlessResource数据
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: 订单id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 执行结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /finance/compute-coupon:
+    get:
+      summary: 算力券列表
+      operationId: financeMgr.computeCoupon
+      tags:
+        - Finance
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          description: 券状态
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 0 #未使用
+              - 1 #已使用
+              - -1 #已过期
+        - name: ident
+          in: query
+          description: 券码
+          required: false
+          schema:
+            type: string
+        - name: name
+          in: query
+          description: 绑定账号名称
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 算力券列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCoupons'
+    post:
+      summary: 新增算力券
+      description: 选择按数量新增或者绑定用户新增，用户数组长度必须与数量一致
+      operationId: financeMgr.createComputeCoupon
+      tags:
+        - Finance
+      security:
+        - AdminAuth: [ ]
+      requestBody:
+        description: 新增代金券表单
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostComputeCouponForm'
+      responses:
+        '200':
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /finance/compute-tree:
+    get:
+      summary: 算力套餐树
+      operationId: financeMgr.computeTree
+      tags:
+        - Finance
+      security:
+        - AdminAuth: [ ]
+      responses:
+        '200':
+          description: 算力券列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComputeTree'
+  /organization:
+    get:
+      summary: '组织列表'
+      operationId: orgMgr.list
+      description: 获取组织列表
+      tags:
+        - OrganizationManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - $ref: '#/components/parameters/PageIndex'
+        - $ref: '#/components/parameters/PageSize'
+        - name: isVendor
+          in: query
+          description: 筛选算力供应商
+          required: false
+          schema:
+            type: boolean
+        - name: keyword
+          in: query
+          description: 搜索关键字(模糊搜索name username)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 组织列表分页
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - total
+                  - items
+                properties:
+                  total:
+                    type: integer
+                    description: 总数
+                  items:
+                    type: array
+                    description: 当前分页下的列表
+                    items:
+                      $ref: '#/components/schemas/AdminOrganization'
+  /organization/{id}/members:
+    get:
+      summary: '组织成员列表'
+      operationId: orgMgr.members
+      description: 组织成员列表
+      tags:
+        - OrganizationManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          description: 组织id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 组织成员列表
+          content:
+            application/json:
+              schema:
+                type: array
+                description: 成员列表
+                items:
+                  $ref: '#/components/schemas/AdminOrganizationMembers'
+  /organization/{id}:
+    patch:
+      summary: '设置供应商'
+      operationId: orgMgr.updateVendor
+      description: 把组织设置为某一个算力供应商
+      tags:
+        - OrganizationManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          description: 组织id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vendor
+              properties:
+                vendor:
+                  type: string
+                  description: 算力供应商id
+      responses:
+        '200':
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /organization/{id}/moderate:
+    patch:
+      summary: '设置审核白名单'
+      operationId: orgMgr.moderate
+      description: 设置审核白名单
+      tags:
+        - OrganizationManager
+      security:
+        - AdminAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          description: 组织id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - moderation
+              properties:
+                moderation:
+                  type: boolean
+                  description: 是否需要审核
+      responses:
+        '200':
+          description: 操作结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+components:
+  parameters:
+    PageIndex:
+      name: page
+      in: query
+      description: 分页号
+      required: false
+      schema:
+        type: integer
+    PageSize:
+      name: size
+      in: query
+      description: 分页大小
+      required: false
+      schema:
+        type: integer
+    OrderIdent:
+      name: ident
+      in: query
+      description: 订单编号
+      required: false
+      schema:
+        type: string
+    OrderStatus:
+      name: status
+      in: query
+      description: 订单状态，如果不传则返回所有订单
+      required: false
+      schema:
+        type: string
+        enum:
+          - pending #待支付
+          - paid    #已支付
+          - receipt #上传回执待确认
+          - cancel  #已取消
+          - refunded #已退款
+    serviceType:
+      name: service_type
+      in: query
+      description: 服务类型
+      required: false
+      schema:
+        type: string
+        enum:
+          - model #模型引擎
+          - app    #应用引擎
+          - serverless #serverless
+  securitySchemes:
+    AdminAuth: # auth for user
+      type: http
+      scheme: bearer
+      bearerFormat: Random
+
+  responses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+    BadRequestError:
+      description: Bad request or invalid parameters
+    ForbiddenError:
+      description: You don't have permission to access this resource
+    NotFoundError:
+      description: Resource not found or you don't have permission to access it
+    EntityTooLargeError:
+      description: Entity is too large
+    InternalServerError:
+      description: Internal server error occurred
+
+  schemas:
+    ComputeTree:
+      description: 算力套餐树
+      type: object
+      required:
+        - label
+        - value
+        - status
+      properties:
+        label:
+          type: string
+          description: label
+        value:
+          type: string
+          description: value
+        status:
+          type: string
+          description: 状态
+          enum:
+            - available
+            - unAvailable
+        type:
+          type: string
+          description: 套餐类型
+          enum:
+            - APP
+            - INFERENCE
+            - ENDPOINT
+            - SERVERLESS_API
+        children:
+          type: array
+          description: 下级
+          items:
+            $ref: '#/components/schemas/ComputeTree'
+    PostCashCouponForm:
+      description: 新增代金券表单
+      type: object
+      required:
+        - number
+        - amount
+        - expired_at
+      properties:
+        number:
+          type: integer
+          description: 数量
+        amount:
+          type: integer
+          description: 面额
+        expired_at:
+          type: string
+          description: 过期时间
+        accounts:
+          type: array
+          description: 兑换账号数组，数组长度必须与数量一致
+          items:
+            $ref: '#/components/schemas/Account'
+    PostComputeCouponForm:
+      description: 新增算力券表单
+      allOf:
+        - $ref: '#/components/schemas/PostCashCouponForm'
+        - type: object
+          required:
+            - vendor
+          properties:
+            vendor:
+              type: string
+              description: 优惠券绑定的供应商编号
+            region:
+              type: string
+              description: 优惠券绑定的区域编号
+            compute:
+              type: string
+              description: 优惠券绑定的算力编号
+    Account:
+      description: 账号
+      type: object
+      required:
+        - account
+        - account_type
+      properties:
+        account:
+          type: integer
+          description: 账号id
+        account_type:
+          type: integer
+          description: 账号类型
+          enum:
+            - 1 #个人
+            - 2 # 组织
+        name:
+          type: string
+          description: 用户名称
+        namespace:
+          type: string
+          description: 用户namespace
+        image:
+          type: string
+          description: 用户头像
+    InvoiceNumber:
+      description: 按状态分组获取发票总数
+      type: object
+      required:
+        - number
+        - status
+      properties:
+        number:
+          type: integer
+          description: 数量
+        status:
+          type: integer
+          description: 发票处理状态
+          enum:
+            - 0 #未审核
+            - 1 #已审核
+            - 2 #已开票
+            - 3 #已邮寄
+            - -1 #已拒绝
+    AdminUser:
+      description: 用户对象
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - $ref: '#/components/schemas/NamespaceProps'
+    User:
+      description: 用户对象
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: 用户编号
+        name:
+          type: string
+          description: 用户名
+        username:
+          type: string
+          description: username
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        email:
+          type: string
+          description: 邮箱
+        models_count:
+          type: integer
+          description: 模型数量
+        ip:
+          type: string
+          description: IP
+        status:
+          type: integer
+          description: 状态(未受邀:0,正常:1,禁用:2,未激活:3)
+        image:
+          type: string
+          description: 头像
+    UserBaseInfo:
+      description: 用户对象
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: 用户编号
+        name:
+          type: string
+          description: 用户名
+        username:
+          type: string
+          description: username
+        image:
+          type: string
+          description: 头像
+    AdminOrganizationMembers:
+      description: 组织成员对象
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Account'
+      properties:
+        role:
+          type: string
+          description: 用户角色
+          enum:
+            - owner
+            - admin
+            - finance
+            - member
+            - guest
+    AdminOrganization:
+      description: 组织对象
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/Organization'
+      properties:
+        members:
+          type: integer
+          description: 成员数量
+        props:
+          type: object
+          $ref: '#/components/schemas/NamespaceProps'
+    NamespaceProps:
+      description: 命名空间补充信息
+      type: object
+      properties:
+        moderation:
+          type: boolean
+          description: 是否需要审核
+          enum:
+            - true #是
+            - false #否
+
+    Organization:
+      description: 组织对象
+      type: object
+      required:
+        - id
+        - name
+        - username
+      properties:
+        id:
+          type: integer
+          description: 编号
+        name:
+          type: string
+          description: 组织名
+        username:
+          type: string
+          description: 命名空间
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        details:
+          type: string
+          description: 组织简介
+        models_count:
+          type: integer
+          description: 模型数量
+        vendor:
+          type: string
+          description: 算力供应商
+        homepage:
+          type: string
+          description: 组织主页
+        image:
+          type: string
+          description: 头像
+    Category:
+      description: 标签分类
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 分类编号
+        type:
+          type: string
+          description: 分类类型
+          enum:
+            - general
+            - model
+            - dataset
+            - app
+            - lang
+            - license
+            - library
+        parent:
+          type: integer
+          description: 父分类编号
+        name:
+          type: string
+          description: 标签名称
+        slug:
+          type: string
+          description: 标签URL标识
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+    Tag:
+      description: 标签
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 标签编号
+        category:
+          type: integer
+          description: 分类编号
+        name:
+          type: string
+          description: 标签名称
+        slug:
+          type: string
+          description: 标签URL标识
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+    PaymentOrders:
+      description: 订单列表
+      type: object
+      required:
+        - total
+        - items
+      properties:
+        total:
+          type: integer
+          description: 订单总数
+        items:
+          type: array
+          description: 当前分页下的订单列表
+          items:
+            $ref: '#/components/schemas/PaymentOrder'
+
+    PaymentOrderBase:
+      description: 订单基础信息
+      type: object
+      required:
+        - service
+        - service_type
+        - service_obj_id
+        - props
+        - minutes
+        - calls
+        - storage
+        - compute
+      properties:
+        service:
+          type: integer
+          description: 对应服务的编号
+        service_type:
+          type: string
+          description: 服务类型
+          enum:
+            - serverless # Serverless
+            - app # 应用引擎
+            - model # 模型引擎
+        service_obj_id:
+          description: 服务对象编号
+          type: integer
+        minutes:
+          type: integer
+          description: 采购分钟数
+        calls:
+          type: integer
+          description: 采购 API 调用次数
+        storage:
+          type: integer
+          description: 采购存储空间
+        compute:
+          type: string
+          description: 采购算力编号,当购买的 service_type 是 app/model 时，需要指定 compute
+        props:
+          type: object
+          description: 服务配置
+          oneOf:
+            - $ref: '#/components/schemas/PaymentOrderProps'
+    PaymentOrderProps:
+      description: 订单基础信息
+      type: object
+      properties:
+        name:
+          type: string
+          description: 产品名称
+        unit_price:
+          type: integer
+          description: 单价
+        service_type:
+          type: string
+          description: 产品类型
+          enum:
+            - app
+            - model
+            - serverless
+    PaymentOrder:
+      description: 订单详情
+      allOf:
+        - $ref: '#/components/schemas/PaymentOrderBase'
+        - type: object
+          required:
+            - id
+            - ident
+            - creator
+            - amount
+            - price
+            - receipt
+            - invoice
+            - payment
+            - created_at
+            - expired_at
+            - status
+          properties:
+            id:
+              type: integer
+              description: 订单编号
+            ident:
+              type: string
+              description: 订单号
+            creator:
+              type: integer
+              description: 下单人编号
+            creator_info:
+              description: 下单人信息
+              type: object
+              $ref: '#/components/schemas/UserBaseInfo'
+            amount:
+              type: number
+              description: 订单总金额
+              multipleOf: 0.01
+            price:
+              type: number
+              description: 订单实付价格
+              multipleOf: 0.01
+            balance:
+              type: number
+              description: 使用余额支付的金额
+            price_detail:
+              description: 价格明细（包括优惠券抵扣，余额扣缴等）
+              $ref: '#/components/schemas/PaymentPrice'
+            receipt_url:
+              type: string
+              description: 回执图片的地址
+            invoice:
+              type: integer
+              description: 发票申请记录编号
+            payment:
+              type: string
+              description: 支付方式
+              enum:
+                - none
+                - alipay
+                - wepay
+                - bank
+                - transfer
+            created_at:
+              type: string
+              format: date-time
+              description: 下单时间
+            updated_at:
+              type: string
+              format: date-time
+              description: 订单更新时间
+            expired_at:
+              type: string
+              format: date-time
+              description: 订单支付的有效时间至
+            status:
+              type: string
+              description: 订单状态
+              enum:
+                - pending #待支付
+                - paid    #已支付
+                - receipt #上传回执待确认
+                - cancel  #已取消
+                - refunded #已退款
+            remark:
+              type: string
+              description: 订单备注信息
+    PaymentPrice:
+      type: object
+      description: 价格详情
+      required:
+        - amount
+        - price
+        - balance
+        - coupons
+      properties:
+        amount:
+          type: number
+          description: 订单总金额
+        price:
+          type: number
+          description: 订单实付价格
+          multipleOf: 0.01
+        balance:
+          type: number
+          description: 余额支付金额
+          multipleOf: 0.01
+        available_balance:
+          type: number
+          description: 可用余额
+          multipleOf: 0.01
+        coupon_amount:
+          type: number
+          description: 优惠券抵扣金额
+          multipleOf: 0.01
+          default: 0
+        cash_coupon_amount:
+          type: number
+          description: 代金券抵扣金额
+          multipleOf: 0.01
+          default: 0
+        compute_coupon_amount:
+          type: number
+          description: 算力券抵扣金额
+          multipleOf: 0.01
+          default: 0
+        coupons:
+          type: array
+          description: 抵扣金额的代金券列表
+          items:
+            $ref: '#/components/schemas/PaymentCoupon'
+    PaymentCoupon:
+      description: 优惠券详情
+      type: object
+      required:
+        - id
+        - creator
+        - type
+        - catalog
+        - ident
+        - vendor
+        - region
+        - compute
+        - amount
+        - avail_days
+        - created_at
+        - expired_at
+        - used_by
+        - status
+      properties:
+        id:
+          type: integer
+          description: 优惠券编号
+        creator:
+          type: integer
+          description: 优惠券创建人编号
+        type:
+          type: string
+          description: 优惠券类型
+          enum:
+            - cash # 现金券
+            - compute  # 算力券
+            - discount  # 折扣券
+        catalog:
+          type: string
+          description: 优惠券类目
+        ident:
+          type: string
+          description: 优惠券兑换码
+        vendor:
+          type: string
+          description: 优惠券绑定的供应商编号
+        region:
+          type: string
+          description: 优惠券绑定的区域编号
+        compute:
+          type: string
+          description: 优惠券绑定的算力编号
+        amount:
+          type: number
+          description: 优惠券金额
+          multipleOf: 0.01
+        balance:
+          type: number
+          description: 优惠券余额
+          multipleOf: 0.01
+        avail_days:
+          type: integer
+          description: 优惠券对应算力使用的有效期，用户必须在兑换完优惠券后多少天使用完
+        created_at:
+          type: string
+          format: date-time
+          description: 优惠券创建日期
+        expired_at:
+          type: string
+          format: date-time
+          description: 有效期至
+        used_by:
+          type: integer
+          description: 使用者
+        used_at:
+          type: string
+          format: date-time
+          description: 兑换日期
+        status:
+          type: integer
+          description: 状态
+        remark:
+          type: string
+          description: 备注
+    PaymentInvoices:
+      description: 发票列表
+      type: object
+      required:
+        - total
+        - items
+      properties:
+        total:
+          type: integer
+          description: 发票总数
+        items:
+          type: array
+          description: 当前分页的发票列表
+          items:
+            $ref: '#/components/schemas/AdminPaymentInvoice'
+    AdminPaymentInvoice:
+      description: 发票列表
+      allOf:
+        - $ref: '#/components/schemas/PaymentInvoice'
+      properties:
+        ordersInfo:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentOrder'
+    PaymentInvoice:
+      description: 发票详情
+      allOf:
+        - $ref: '#/components/schemas/PaymentInvoiceForm'
+        - type: object
+          required:
+            - id
+            - amount
+            - logs
+            - created_at
+            - status
+          properties:
+            id:
+              type: integer
+              description: 发票编号
+            amount:
+              type: number
+              description: 发票金额
+              multipleOf: 0.01
+            logs:
+              type: array
+              description: 该发票的操作日志（例如已快递之类的）
+              items:
+                $ref: '#/components/schemas/AuditedInvoiceLog'
+            created_at:
+              type: string
+              format: date-time
+              description: 发票申请时间
+            status:
+              type: integer
+              description: 发票处理状态
+              enum:
+                - 0 #未审核
+                - 1 #已审核
+                - 2 #已开票
+                - 3 #已邮寄
+                - -1 #已拒绝
+    PaymentInvoiceForm:
+      description: 发票申请表单
+      type: object
+      required:
+        - orders
+        - type
+        - company
+      properties:
+        orders:
+          type: array
+          description: 订单号列表
+          items:
+            type: string
+        type:
+          type: string
+          description: 发票类型
+          enum:
+            - GENERAL #电子普票
+            - PAPER   #纸质发票
+            - SPECIAL #专票
+        company:
+          type: integer
+          description: 对应的开票信息
+    AuditedInvoiceLog:
+      description: 发票操作日志
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AuditedInvoiceRequest'
+      properties:
+        name:
+          description: 使用者名称
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        image:
+          description: 使用者头像
+          type: string
+    AuditedInvoiceRequest:
+      description: 审核发票请求
+      type: object
+      required:
+        - invoice_id
+        - status
+      properties:
+        invoice_id:
+          type: integer
+          description: 发票id
+        status:
+          type: integer
+          description: 发票处理状态
+          enum:
+            - 0 #未审核
+            - 1 #已审核
+            - 2 #已开票
+            - 3 #已邮寄
+            - -1 #已拒绝
+        remark:
+          type: string
+          description: 备注
+    PaymentCoupons:
+      description: 优惠券列表
+      type: object
+      required:
+        - total
+        - items
+      properties:
+        total:
+          type: integer
+          description: 优惠券总数
+        items:
+          allOf:
+            - $ref: '#/components/schemas/PaymentCoupon'
+          properties:
+            account_info:
+              description: 绑定账号信息
+              type: object
+              $ref: '#/components/schemas/Account'
+
